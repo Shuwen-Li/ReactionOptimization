@@ -20,9 +20,7 @@ xgboost = 1.3.3
 ```
 
 # Demo & Instructions for use
-Notebook 1 demonstrates how to generate descriptors.
-
-Notebook 2 demonstrates the process of model selection.
+Notebook Examples.ipynb demonstrates how to use our work to reaction optimization.
 
 # Contact with us
 Email: shuwen_li@zju.edu.cn
