@@ -325,6 +325,8 @@ def yield_optimization_single_line(seed,des_name,domain,desc_domain,target = 'yi
                 stage=stage,cc1=ten_cc1,cc2=ten_cc2,cc1_num=tem_cc1num,cc2_num=tem_cc2num,target = 'yield')
         all_stage.append(stage)
         stage=max(all_stage)
+    if try_idx == 9:
+        stage = 3
     results_all_cycle.append(result[target].tolist()[:50])
     all_index.append(result.index.values[:5])
     all_exp_index.append(np.array(result)[:50,:])
