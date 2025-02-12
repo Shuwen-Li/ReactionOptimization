@@ -316,7 +316,7 @@ def yield_optimization_single_line(seed,des_name,domain,desc_domain,target = 'yi
         new_result.to_csv(rundata_dir+f'result_ourwork/cycle_{seed}_{try_idx}.csv')
         result = add_result(result,rundata_dir+f'result_ourwork/cycle_{seed}_{try_idx}.csv')
         train_x,train_y = result2xy(desc_domain,result=result)
-        if try_idx <= 9:
+        if try_idx <= 8:
             tem_model = 'rf'
         else:
             tem_model = model
