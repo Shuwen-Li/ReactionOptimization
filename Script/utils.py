@@ -320,7 +320,7 @@ def yield_optimization_single_line(seed,des_name,domain,desc_domain,target = 'yi
             tem_model = 'rf'
         else:
             tem_model = model
-        yield_optimization = auto_yield_optimization_cn(train_x,train_y,n_jobs=2,model=tem_model,random_state=random_state)
+        yield_optimization = auto_yield_optimization_cn(train_x,train_y,n_jobs=2,model=tem_model,random_state=random_state,run_time = run_time, per_run_time = per_run_time)
         domain_sampled,stage = yield_optimization.recommend(domain,desc_domain,result,batch_size=tem_batch_size,\
                 stage=stage,cc1=ten_cc1,cc2=ten_cc2,cc1_num=tem_cc1num,cc2_num=tem_cc2num,target = 'yield')
         all_stage.append(stage)
