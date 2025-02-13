@@ -287,7 +287,7 @@ def exe_exp(domain_sampled,exp_result):
 
 exp_result = pd.read_csv('./Data/data_cn/experiment_index.csv')
 def yield_optimization_single_line(seed,des_name,domain,desc_domain,target = 'yield',tem_batch_size=5,ten_cc1=3,ten_cc2=2,tem_cc1num=(3955*0.25),tem_cc2num=int(3955*0.1),
-                model='automl',rundata_dir = './Data/rundata_cn/',exp_result = exp_result,random_state = 0,task = ''):
+                model='automl',rundata_dir = './Data/rundata_cn/',exp_result = exp_result,random_state = 0,task = '',run_time = 120, per_run_time = 30):
     print('Run seed:',seed)
     results_all_cycle=[]
     all_index=[]
@@ -305,7 +305,7 @@ def yield_optimization_single_line(seed,des_name,domain,desc_domain,target = 'yi
     stage=1
     all_stage=[1]
     train_x,train_y = result2xy(desc_domain,result=result)
-    yield_optimization = auto_yield_optimization_cn(train_x,train_y,n_jobs=2,model='rf',random_state=random_state)
+    yield_optimization = auto_yield_optimization_cn(train_x,train_y,n_jobs=2,model='rf',random_state=random_state,run_time = run_time, per_run_time = per_run_time)
     domain_sampled,stage = yield_optimization.recommend(domain,desc_domain,result,batch_size=tem_batch_size,\
                 stage=stage,cc1=ten_cc1,cc2=ten_cc2,cc1_num=tem_cc1num,cc2_num=tem_cc2num,target = 'yield')
     for try_idx in range(1,11):
@@ -320,13 +320,13 @@ def yield_optimization_single_line(seed,des_name,domain,desc_domain,target = 'yi
             tem_model = 'rf'
         else:
             tem_model = model
-            stage = 3
         yield_optimization = auto_yield_optimization_cn(train_x,train_y,n_jobs=2,model=tem_model,random_state=random_state)
         domain_sampled,stage = yield_optimization.recommend(domain,desc_domain,result,batch_size=tem_batch_size,\
                 stage=stage,cc1=ten_cc1,cc2=ten_cc2,cc1_num=tem_cc1num,cc2_num=tem_cc2num,target = 'yield')
         all_stage.append(stage)
         stage=max(all_stage)
-        
+    if try_idx == 9:
+        stage = 3
     results_all_cycle.append(result[target].tolist()[:50])
     all_index.append(result.index.values[:5])
     all_exp_index.append(np.array(result)[:50,:])
