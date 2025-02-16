@@ -20,8 +20,7 @@ xgboost = 2.1.1
 
 # Demo & Instructions for use
 Notebook Examples.ipynb demonstrates how to use our work to reaction optimization.  
-Notebook results.ipynb demonstrates the reults of reaction optimization.  
-Notebook path.ipynb demonstrates the path of reaction optimization.  
+Notebook results.ipynb demonstrates the reults of reaction optimization.   
 The folder Bayesian demonstrates how to optimize reactions using Bayesian optimization.  
 # Contact with us
 Email: shuwen_li@zju.edu.cn
