@@ -321,7 +321,7 @@ def yield_optimization_single_line(seed,des_name,domain,desc_domain,target = 'yi
     stage=1
     all_stage=[1]
     train_x,train_y = result2xy(desc_domain,result=result)
-    yield_optimization = auto_yield_optimization_cn(train_x,train_y,n_jobs=2,model='rf',random_state=random_state,run_time = run_time, per_run_time = per_run_time)
+    yield_optimization = auto_yield_optimization_cn(train_x,train_y,n_jobs=2,model='GB',random_state=random_state,run_time = run_time, per_run_time = per_run_time)
     domain_sampled,stage = yield_optimization.recommend(domain,desc_domain,result,batch_size=tem_batch_size,\
                 stage=stage,cc1=ten_cc1,cc2=ten_cc2,cc1_num=tem_cc1num,cc2_num=tem_cc2num,target = 'yield')
     for try_idx in range(1,11):
@@ -333,7 +333,7 @@ def yield_optimization_single_line(seed,des_name,domain,desc_domain,target = 'yi
         result = add_result(result,rundata_dir+f'result_ourwork/cycle_{seed}_{try_idx}.csv')
         train_x,train_y = result2xy(desc_domain,result=result)
         if try_idx <= 8:
-            tem_model = 'rf'
+            tem_model = 'GB'
         else:
             tem_model = model
         yield_optimization = auto_yield_optimization_cn(train_x,train_y,n_jobs=2,model=tem_model,random_state=random_state,run_time = run_time, per_run_time = per_run_time)
@@ -341,8 +341,8 @@ def yield_optimization_single_line(seed,des_name,domain,desc_domain,target = 'yi
                 stage=stage,cc1=ten_cc1,cc2=ten_cc2,cc1_num=tem_cc1num,cc2_num=tem_cc2num,target = 'yield')
         all_stage.append(stage)
         stage=max(all_stage)
-    if try_idx == 9:
-        stage = 3
+    #if try_idx == 9:
+        #stage = 3
     results_all_cycle.append(result[target].tolist()[:50])
     all_index.append(result.index.values[:5])
     all_exp_index.append(np.array(result)[:50,:])
