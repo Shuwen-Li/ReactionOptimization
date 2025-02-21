@@ -183,13 +183,29 @@ class auto_yield_optimization_cn():
         self.run_time = run_time
         self.per_run_time = per_run_time
         self.n_jobs = n_jobs
-        assert model == 'automl' or model == 'gridsearch' or model == 'rf' or model == 'et' or model == 'xgb', 'Only Auto ML, Grid Search, support RandomForest (RF), ExtraTrees(ET) and XGBoost(XGB) currently.'
-        if model == 'rf':
-            self.model = RandomForestRegressor(n_jobs=n_jobs,random_state=random_state)
-        elif model == 'et':
+        #assert model == 'automl' or model == 'gridsearch' or model == 'rf' or model == 'et' or model == 'xgb', 'Only Auto ML, Grid Search, support RandomForest (RF), ExtraTrees(ET) and XGBoost(XGB) currently.'
+
+        if model == 'DT':
+            self.model = tree.DecisionTreeRegressor(random_state=random_state)            
+        elif model == 'ET':
             self.model = ExtraTreesRegressor(n_jobs=n_jobs,random_state=random_state)
-        elif model == 'xgb':
-            self.model = XGBRegressor(n_jobs=n_jobs,random_state=random_state)
+            
+        elif model == 'GB':
+            self.model = GradientBoostingRegressor(random_state=random_state)            
+        elif model == 'KNR':
+            self.model = KNeighborsRegressor(n_jobs=n_jobs)           
+        elif model == 'KRR':
+            self.model = KernelRidge()            
+        elif model == 'LSVR':
+            self.model = LinearSVR(random_state=random_state)  
+        elif model == 'RF':
+            self.model = RandomForestRegressor(n_jobs=n_jobs,random_state=random_state)          
+        elif model == 'Ridge':
+            self.model = linear_model.Ridge()            
+        elif model == 'SVR':
+            self.model = SVR()             
+        elif model == 'XGB':
+            self.model = XGBRegressor(random_state=random_state)                       
         elif model == 'gridsearch':
             self.model = get_best_model_and_param(self.train_x,self.train_y)          
         elif model == 'automl':
@@ -316,7 +332,7 @@ def yield_optimization_single_line(seed,des_name,domain,desc_domain,target = 'yi
         new_result.to_csv(rundata_dir+f'result_ourwork/cycle_{seed}_{try_idx}.csv')
         result = add_result(result,rundata_dir+f'result_ourwork/cycle_{seed}_{try_idx}.csv')
         train_x,train_y = result2xy(desc_domain,result=result)
-        if try_idx <= 9:
+        if try_idx <= 8:
             tem_model = 'rf'
         else:
             tem_model = model
@@ -325,6 +341,8 @@ def yield_optimization_single_line(seed,des_name,domain,desc_domain,target = 'yi
                 stage=stage,cc1=ten_cc1,cc2=ten_cc2,cc1_num=tem_cc1num,cc2_num=tem_cc2num,target = 'yield')
         all_stage.append(stage)
         stage=max(all_stage)
+    if try_idx == 9:
+        stage = 3
     results_all_cycle.append(result[target].tolist()[:50])
     all_index.append(result.index.values[:5])
     all_exp_index.append(np.array(result)[:50,:])
