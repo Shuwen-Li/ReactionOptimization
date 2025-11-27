@@ -33,16 +33,16 @@ def getdescdomain(domain,desc_map,defined_chemical_space):
     new_df = pd.DataFrame(numeric_columns)
     return new_df
 
-def random_recom(batch_size,domain,desc_domain,init_pth,random_state=None,target = 'yield',external_init=False,output_index=False,save_file = True):
+def random_recom(batch_size,domain,desc_domain,init_pth,random_state_init=None,target = 'yield',external_init=False,output_index=False,save_file = True):
 
     if external_init=='doyle':
-        exp_idx = pd.read_csv('/home/hx-gpu3/Jupyter.dir/LSW/Bayesian3/bayesian_results/cn_seed_%d.csv'%(random_state))['Unnamed: 0'].to_list()[:5]
+        exp_idx = pd.read_csv('/home/hx-gpu3/Jupyter.dir/LSW/Bayesian3/bayesian_results/cn_seed_%d.csv'%(random_state_init))['Unnamed: 0'].to_list()[:5]
     elif external_init[:8]=='low_rate':
         rate = int(external_init[8:])/100
-        np.random.seed(random_state)          
+        np.random.seed(random_state_init)          
         exp_idx = np.random.randint(0,int(len(domain)*rate),batch_size) 
     else:
-        np.random.seed(random_state)          
+        np.random.seed(random_state_init)          
         exp_idx = np.random.randint(0,len(domain),batch_size)       
     init_react = domain.iloc[exp_idx]
     with warnings.catch_warnings():
@@ -116,7 +116,7 @@ def get_model(model_name,best_params):
     return model
 
 def get_best_model_and_param(train_x,train_y):
-    random_seed=2024
+    random_seed=0
     param_grid = {    
                     'DT':{'max_depth':[None,10,20,30]},
                     'ET':{'n_estimators':[50,100,200,300,400],'max_depth':[None,10,20,30]},
@@ -212,7 +212,7 @@ def get_total_results(dir,start,end,print_dir = True,save_dir = ''):
     return total_results 
 
 class recommend_experiment():
-    def __init__(self,train_x,train_y,random_state,model='RF',n_jobs=-1): 
+    def __init__(self,train_x,train_y,random_state,solver,model='Ridge',n_jobs=-1): 
         self.random_state = random_state
         self.train_x = train_x.cpu().numpy()
         self.train_y = train_y.cpu().numpy()
@@ -233,7 +233,7 @@ class recommend_experiment():
         elif model == 'RF':
             self.model = RandomForestRegressor(n_jobs=n_jobs,random_state=random_state)          
         elif model == 'Ridge':
-            self.model = linear_model.Ridge()            
+            self.model = linear_model.Ridge(alpha=1,random_state=random_state,solver=solver)            
         elif model == 'SVR':
             model = SVR()       
         elif model == 'SVR_linear':
@@ -344,7 +344,7 @@ class recommend_experiment():
         return domain_sampled,tem_stage 
 def reaction_optimization_single_line(seed,des_name,domain,desc_domain,target = 'yield',tem_batch_size=5,cc1=1,cc2=1,cc3=1,cc4=1,
         cc1_rate=0.5,cc2_rate=0.5,cc3_rate=0.5,cc4_rate=0.5,model='rf',random_state = 0,task = '',print_seed = True,
-        external_init = 'low_rate10',data_name = 'cc'):
+        external_init = 'low_rate10',data_name = 'cc',):
     space_num = desc_domain.shape[0]
     cc1_num = int(cc1_rate*space_num)
     cc2_num = int(cc2_rate*space_num)
@@ -358,11 +358,13 @@ def reaction_optimization_single_line(seed,des_name,domain,desc_domain,target = 
     all_exp_index=[]
     result = pd.DataFrame.from_dict({tmp_key:[] for tmp_key in list(domain.keys()) + [target]})
     init_react = random_recom(tem_batch_size,domain,desc_domain,
-                            rundata_dir+f'recommend_ourwork/init_{seed}.csv',random_state=seed,external_init=external_init)
+                            rundata_dir+f'recommend_ourwork/init_{seed}.csv',random_state_init=seed,external_init=external_init)
     if data_name == 'cc':
         init_target = exe_exp_cc(init_react)
+        solver = 'saga'
     elif data_name == 'cn':
         init_target = exe_exp_cn(init_react)
+        solver = 'auto'
         
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -373,7 +375,7 @@ def reaction_optimization_single_line(seed,des_name,domain,desc_domain,target = 
     stage=1
     all_stage=[1]
     train_x,train_y = result2xy(desc_domain,result=result)
-    reaction_optimization = recommend_experiment(train_x,train_y,n_jobs=2,model=model,random_state=random_state)
+    reaction_optimization = recommend_experiment(train_x,train_y,n_jobs=2,model=model,random_state=random_state,solver=solver)
     domain_sampled,stage = reaction_optimization.recommend(domain,desc_domain,result,batch_size=tem_batch_size,space_num=space_num,stage=stage,\
             cc1=cc1,cc2=cc2,cc3=cc3,cc4=cc4,cc1_num=cc1_num,cc2_num=cc2_num,cc3_num=cc3_num,cc4_num=cc4_num,target = 'yield')
     for try_idx in range(1,14):
@@ -387,7 +389,7 @@ def reaction_optimization_single_line(seed,des_name,domain,desc_domain,target = 
         new_result.to_csv(rundata_dir+f'result_ourwork/cycle_{seed}_{try_idx}.csv')
         result = add_result(result,rundata_dir+f'result_ourwork/cycle_{seed}_{try_idx}.csv')
         train_x,train_y = result2xy(desc_domain,result=result)
-        reaction_optimization = recommend_experiment(train_x,train_y,n_jobs=2,model=model,random_state=random_state)
+        reaction_optimization = recommend_experiment(train_x,train_y,n_jobs=2,model=model,random_state=random_state,solver=solver)
         domain_sampled,stage = reaction_optimization.recommend(domain,desc_domain,result,batch_size=tem_batch_size,space_num=space_num,stage=stage,\
             cc1=cc1,cc2=cc2,cc3=cc3,cc4=cc4,cc1_num=cc1_num,cc2_num=cc2_num,cc3_num=cc3_num,cc4_num=cc4_num,target = 'yield')
         all_stage.append(stage)
