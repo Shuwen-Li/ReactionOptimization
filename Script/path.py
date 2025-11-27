@@ -30,8 +30,8 @@ def get_xy4(tem_exp,space):
             if j[0]==tem_exp[0] and j[1]==tem_exp[1] and j[2]==tem_exp[2] and j[3]==tem_exp[3] and j[4]==tem_exp[4]:
                 return index2,index1
             
-def sort_2d_array(row_value,col_value,matrix):
+'''def sort_2d_array(row_value,col_value,matrix):
     sorted_row_indices = sorted(range(len(row_value)), key=lambda k: row_value[k],reverse=True)
     sorted_col_indices = sorted(range(len(col_value)), key=lambda k: col_value[k],reverse=True)
     sorted_matrix = [[matrix[sorted_row_indices[row]][sorted_col_indices[col]] for col in range(len(matrix[0]))] for row in range(len(matrix))]
-    return sorted_matrix, sorted_row_indices, sorted_col_indices
+    return sorted_matrix, sorted_row_indices, sorted_col_indices'''
