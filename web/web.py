@@ -12,6 +12,17 @@ from sklearn.linear_model import Ridge
 import base64
 from PIL import Image
 from itertools import product
+import time
+
+# Chemprop imports
+from chemprop.featurizers.molecule import (
+    MorganBinaryFeaturizer,
+    MorganCountFeaturizer,
+    RDKit2DFeaturizer,
+    V1RDKit2DFeaturizer,
+    V1RDKit2DNormalizedFeaturizer,
+)
+from chemprop.utils import make_mol
 
 # Set page config
 st.set_page_config(page_title="Reaction Optimization Platform", layout="wide")
@@ -55,6 +66,108 @@ if 'show_output' not in st.session_state:
     st.session_state.show_output = False
 if 'last_method_used' not in st.session_state:
     st.session_state.last_method_used = None
+if 'featurizer_cache' not in st.session_state:
+    st.session_state.feat_cache = {}
+
+# 优化的Chemprop描述符函数
+def get_chemprop_descriptors_fast(smiles_list, featurizer_type="V1RDKit2DNormalized"):
+    """
+    优化的分子描述符生成函数
+    """
+    if not smiles_list:
+        return np.array([])
+    
+    # 检查缓存
+    cache_key = f"{featurizer_type}_{hash(tuple(smiles_list))}"
+    if cache_key in st.session_state.feat_cache:
+        return st.session_state.feat_cache[cache_key]
+    
+    try:
+        # 预初始化特征化器（只做一次）
+        if featurizer_type == "MorganBinary":
+            featurizer = MorganBinaryFeaturizer()
+        elif featurizer_type == "MorganCount":
+            featurizer = MorganCountFeaturizer()
+        elif featurizer_type == "RDKit2D":
+            featurizer = RDKit2DFeaturizer()
+        elif featurizer_type == "V1RDKit2D":
+            featurizer = V1RDKit2DFeaturizer()
+        else:  # Default to V1RDKit2DNormalized
+            featurizer = V1RDKit2DNormalizedFeaturizer()
+        
+        # 批量处理分子
+        mols = []
+        valid_indices = []
+        
+        # 第一步：快速验证SMILES并创建分子对象
+        for i, smi in enumerate(smiles_list):
+            try:
+                # 使用更快的参数设置
+                mol = make_mol(smi, keep_h=False, add_h=False, ignore_stereo=True)  # 忽略立体化学加速
+                if mol is not None:
+                    mols.append(mol)
+                    valid_indices.append(i)
+                else:
+                    valid_indices.append(i)  # 仍然保留索引，后面用零填充
+            except:
+                valid_indices.append(i)  # 出错时仍然保留索引
+        
+        # 第二步：批量生成描述符
+        descriptors = []
+        for mol in mols:
+            try:
+                desc = featurizer(mol)
+                descriptors.append(desc)
+            except:
+                # 如果生成描述符失败，创建零向量
+                if descriptors:  # 如果已经有成功的描述符，使用相同的维度
+                    descriptors.append(np.zeros_like(descriptors[0]))
+                else:
+                    # 需要知道描述符的维度，先创建一个虚拟分子
+                    dummy_mol = make_mol("C", keep_h=False, add_h=False, ignore_stereo=True)
+                    if dummy_mol is not None:
+                        dummy_desc = featurizer(dummy_mol)
+                        descriptors.append(np.zeros_like(dummy_desc))
+                    else:
+                        descriptors.append(np.zeros(200))  # 回退
+        
+        # 第三步：构建完整的结果数组
+        if descriptors:
+            # 确定描述符维度
+            desc_dim = len(descriptors[0])
+            full_descriptors = np.zeros((len(smiles_list), desc_dim))
+            
+            # 填充有效描述符
+            desc_idx = 0
+            for i in range(len(smiles_list)):
+                if i in valid_indices and desc_idx < len(descriptors):
+                    full_descriptors[i] = descriptors[desc_idx]
+                    desc_idx += 1
+        else:
+            # 如果没有成功的描述符，返回零数组
+            full_descriptors = np.zeros((len(smiles_list), 200))
+        
+        # 缓存结果
+        st.session_state.feat_cache[cache_key] = full_descriptors
+        return full_descriptors
+    
+    except Exception as e:
+        st.warning(f"Chemprop descriptor generation had issues: {str(e)}. Using fallback descriptors.")
+        # 回退到简单的指纹
+        return np.array([smi_to_fp(smi) for smi in smiles_list])
+
+# 更简单的回退方案
+def get_fallback_descriptors(smiles_list):
+    """快速回退描述符生成"""
+    return np.array([smi_to_fp(smi) for smi in smiles_list])
+
+# Helper function for molecular fingerprints
+def smi_to_fp(smi):
+    mol = Chem.MolFromSmiles(smi)
+    if mol is not None:
+        return np.array(AllChem.GetMorganFingerprintAsBitVect(mol, 2, nBits=1024))
+    else:
+        return np.zeros(1024)
 
 # Page 1: Introduction
 def introduction_page():
@@ -77,14 +190,6 @@ def introduction_page():
     except FileNotFoundError:
         st.warning("Workflow image not found at './figure/workflow.jpg'")
 
-# Helper function for molecular fingerprints
-def smi_to_fp(smi):
-    mol = Chem.MolFromSmiles(smi)
-    if mol is not None:
-        return np.array(AllChem.GetMorganFingerprintAsBitVect(mol, 2, nBits=1024))
-    else:
-        return np.zeros(1024)
-
 # Page 2: Prediction
 def prediction_page():
     st.markdown("<h1 style='text-align: center; color: black;'>Recommended Reaction Conditions</h1>", 
@@ -92,7 +197,30 @@ def prediction_page():
     
     # Part 1: Descriptor selection
     st.subheader("1. Descriptor and Model Selection")
+    
+    # 添加性能提示
+    with st.expander("💡 Performance Tips"):
+        st.write("""
+        - **Morgan Fingerprint**: Fast and reliable (recommended for large datasets)
+        - **Chemprop Morgan**: Medium speed, good accuracy  
+        - **Chemprop RDKit2D**: Slower but more detailed descriptors
+        - For best performance, start with Morgan Fingerprint
+        """)
+    
     st.session_state.descriptor_type = st.selectbox("Select descriptor type:", ["Morgan Fingerprint", "Chemprop"])
+    
+    # Chemprop featurizer selection (only show when Chemprop is selected)
+    chemprop_featurizer_type = "MorganBinary"  # 默认使用更快的MorganBinary
+    if st.session_state.descriptor_type == "Chemprop":
+        chemprop_featurizer_type = st.selectbox(
+            "Select Chemprop Featurizer:",
+            ["MorganBinary", "MorganCount", "V1RDKit2DNormalized", "V1RDKit2D", "RDKit2D"],
+            help="MorganBinary: Fastest, MorganCount: Fast, RDKit2D: Slower but more detailed"
+        )
+        
+        # 根据选择显示性能提示
+        if chemprop_featurizer_type in ["V1RDKit2DNormalized", "V1RDKit2D", "RDKit2D"]:
+            st.warning("⚠️ RDKit 2D descriptors may be slower for large datasets")
     
     # Model selection - use the returned value directly
     model_type = st.selectbox("Select model type:", 
@@ -100,6 +228,12 @@ def prediction_page():
                              "Kernel Ridge","K-Nearest Neighbors", "Linear SVR",
                              "Random Forest", "Ridge", "SVR"],
                             key="model_type")
+    
+    # 添加清除缓存按钮
+    if st.session_state.feat_cache:
+        if st.button("Clear Descriptor Cache"):
+            st.session_state.feat_cache = {}
+            st.success("Descriptor cache cleared!")
     
     # Part 2: Create Chemical Space
     st.subheader("2. Generate Chemical Space")
@@ -290,31 +424,56 @@ def prediction_page():
         if st.button("Recommend Experiments", type="primary", key="recommend_button"):
             with st.spinner('Training model and making predictions...'):
                 try:
+                    # 添加进度显示
+                    progress_bar = st.progress(0)
+                    status_text = st.empty()
+                    
                     # Prepare training data
                     X_train = []
                     y_train = st.session_state.known_reactions['yield'].values
                     
+                    status_text.text("Generating descriptors...")
+                    
                     if st.session_state.descriptor_type == "Morgan Fingerprint":
-                        for _, row in st.session_state.known_reactions.iterrows():
+                        for idx, (_, row) in enumerate(st.session_state.known_reactions.iterrows()):
                             fps = [smi_to_fp(row[col]) for col in condition_cols]
                             combined = np.concatenate(fps)
                             X_train.append(combined)
+                            progress_bar.progress((idx + 1) / len(st.session_state.known_reactions) * 0.5)
                     else:  # chemprop
+                        # 批量处理所有SMILES
+                        all_smiles = []
                         for _, row in st.session_state.known_reactions.iterrows():
-                            desc = [len(str(row[col])) for col in condition_cols]  
-                            X_train.append(desc)
+                            smiles_combination = [str(row[col]) for col in condition_cols]
+                            all_smiles.extend(smiles_combination)
+                        
+                        # 批量生成描述符
+                        status_text.text("Generating Chemprop descriptors (this may take a moment)...")
+                        all_descriptors = get_chemprop_descriptors_fast(all_smiles, chemprop_featurizer_type)
+                        
+                        # 重新组合描述符
+                        desc_per_condition = len(all_descriptors[0]) if len(all_descriptors) > 0 else 0
+                        for i in range(len(st.session_state.known_reactions)):
+                            start_idx = i * num_conditions
+                            end_idx = start_idx + num_conditions
+                            condition_descriptors = all_descriptors[start_idx:end_idx]
+                            combined_descriptors = np.concatenate(condition_descriptors)
+                            X_train.append(combined_descriptors)
+                            progress_bar.progress((i + 1) / len(st.session_state.known_reactions) * 0.5)
                     
                     X_train = np.array(X_train)
+                    progress_bar.progress(0.6)
+                    status_text.text("Training model...")
                     
                     # Train selected model
                     if model_type == "Random Forest":
-                        model = RandomForestRegressor(n_estimators=100, random_state=42)
+                        model = RandomForestRegressor(n_estimators=50, random_state=42)  # 减少树的数量
                     elif model_type == "Gradient Boosting":
                         model = GradientBoostingRegressor(random_state=42)
                     elif model_type == "Decision Tree":
                         model = DecisionTreeRegressor(random_state=42)
                     elif model_type == "Extra Trees":
-                        model = ExtraTreesRegressor(n_estimators=100, random_state=42)
+                        model = ExtraTreesRegressor(n_estimators=50, random_state=42)  # 减少树的数量
                     elif model_type == "K-Nearest Neighbors":
                         model = KNeighborsRegressor()
                     elif model_type == "Kernel Ridge":
@@ -327,6 +486,8 @@ def prediction_page():
                         model = SVR()
                     
                     model.fit(X_train, y_train)
+                    progress_bar.progress(0.8)
+                    status_text.text("Making predictions...")
                     
                     # Prepare prediction data (unseen combinations)
                     known_combinations = st.session_state.known_reactions[condition_cols].apply(tuple, axis=1).tolist()
@@ -338,14 +499,25 @@ def prediction_page():
                     else:
                         # Predict yields for unseen combinations
                         X_pred = []
-                        for comb in unseen_combinations:
-                            if st.session_state.descriptor_type == "Morgan Fingerprint":
+                        if st.session_state.descriptor_type == "Morgan Fingerprint":
+                            for comb in unseen_combinations:
                                 fps = [smi_to_fp(smi) for smi in comb]
                                 combined = np.concatenate(fps)
                                 X_pred.append(combined)
-                            else:  # chemprop
-                                desc = [len(str(smi)) for smi in comb]  
-                                X_pred.append(desc)
+                        else:  # chemprop
+                            # 批量处理预测数据
+                            pred_smiles = []
+                            for comb in unseen_combinations:
+                                pred_smiles.extend(comb)
+                            
+                            pred_descriptors = get_chemprop_descriptors_fast(pred_smiles, chemprop_featurizer_type)
+                            
+                            for i in range(len(unseen_combinations)):
+                                start_idx = i * num_conditions
+                                end_idx = start_idx + num_conditions
+                                condition_descriptors = pred_descriptors[start_idx:end_idx]
+                                combined_descriptors = np.concatenate(condition_descriptors)
+                                X_pred.append(combined_descriptors)
                         
                         X_pred = np.array(X_pred)
                         pred_yields = model.predict(X_pred)
@@ -378,6 +550,9 @@ def prediction_page():
                             if valid:
                                 recommended.append(row)
                                 known_set.add(current_comb)
+                        
+                        progress_bar.progress(1.0)
+                        status_text.text("Complete!")
                         
                         if recommended:
                             recommendations = pd.DataFrame(recommended)
