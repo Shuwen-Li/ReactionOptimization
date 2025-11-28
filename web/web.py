@@ -173,7 +173,7 @@ def smi_to_fp(smi):
 def introduction_page():
     st.markdown("<h1 style='text-align: center; color: black;'>Reaction Optimization Platform</h1>", 
                 unsafe_allow_html=True)
-    st.markdown("<h3 style='text-align: center; color: black;'>Shu-Wen Li, Shan Chen, Shuo-Qing Zhang, Lutz Ackermann,* and Xin Hong*</h3>", 
+    st.markdown("<h3 style='text-align: center; color: black;'>Shu-Wen Li, Shan Chen, João C. A. Oliveira, Shuo-Qing Zhang, Lutz Ackermann,* and Xin Hong*</h3>", 
                 unsafe_allow_html=True)
     
     st.markdown("""
