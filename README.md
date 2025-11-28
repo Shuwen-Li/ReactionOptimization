@@ -9,6 +9,7 @@ Optimizing reaction conditions in high-dimensional chemical spaces remains a cen
 In order to run Jupyter Notebook involved in this repository, several third-party python packages are required. The versions of these packages in our station are listed below.
 ```
 python = 3.8.0
+joblib = 1.3.2
 matplotlib = 3.7.2
 numpy = 1.24.4
 pandas = 2.0.3
