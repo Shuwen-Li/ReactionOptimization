@@ -21,8 +21,11 @@ xgboost = 2.1.1
 ```
 
 # Demo & Instructions for use
-Notebook Examples.ipynb demonstrates how to use our work to reaction optimization.  
-Notebook results.ipynb demonstrates the reults of reaction optimization.   
-The folder Bayesian demonstrates how to optimize reactions using Bayesian optimization.  
+1.Notebook 1-Reaction_Optimization_CC.ipynb and 2-Reaction_Optimization_CN.ipynb demonstrate how to use our work to reaction optimization.  
+2.Notebook 3-Path_CC.ipynb and 4-Path_CN.ipynb demonstrate path of reaction optimization.
+3.Notebook 5-Results.ipynb demonstrates the reults of reaction optimization.   
+4.The folder Bayesian demonstrates how to optimize reactions using Bayesian optimization. 
+# How to cite
+[1]. Li S.-W., Chen S., Oliveira J. C. A., Zhang S.-Q, Ackermann L. & Hong X. Staged Diversity-Constrained Machine Learning for High-Dimensional Reaction Condition Optimization. Angew. Chem. Int. Ed., 17, e4418883 (2026) DOI:https://doi.org/10.1002/anie.4418883.
 # Contact with us
 Email: shuwen_li@zju.edu.cn
